@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Mypaint</string>
+    <string name="color_dialog_title">Choose Color</string>
 </resources>

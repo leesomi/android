@@ -2,6 +2,7 @@ package com.clbee.mypaint;
 
 
 import android.app.Activity;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
@@ -13,6 +14,7 @@ import android.graphics.drawable.Drawable;
 import android.media.ExifInterface;
 import android.net.Uri;
 import android.provider.MediaStore;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 
 import java.io.IOException;
@@ -28,73 +30,116 @@ import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup.LayoutParams;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
-public class MainActivity extends AppCompatActivity {
+import com.flask.colorpicker.ColorPickerView;
+import com.flask.colorpicker.OnColorChangedListener;
+import com.flask.colorpicker.OnColorSelectedListener;
+import com.flask.colorpicker.builder.ColorPickerClickListener;
+import com.flask.colorpicker.builder.ColorPickerDialogBuilder;
+
+import com.clbee.mypaint.Custompaintview;
+
+public class MainActivity extends AppCompatActivity implements View.OnClickListener {
+
+    private Custompaintview custompv;
 
     private final int GALLERY_CODE=1112;
+    public int currentDrawlineColor = Color.WHITE;
+    public float currentDrawlineThick = 1f;
     LinearLayout linearLayout;
-    ImageView ivImage;
-    MyPaint mp;
+    Button color_btn;
 
-    class Point {
-        float x;
-        float y;
-        boolean isDraw;
-        public Point(float x, float y, boolean isDraw) {
-            this.x = x;
-            this.y = y;
-            this.isDraw = isDraw;
-        }
-    }
-    class MyPaint extends View {
-        public MyPaint(Context context) {
-            super(context);
 
-            setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
-            this.setOnTouchListener(new OnTouchListener() {
-                @Override
-                public boolean onTouch(View v, MotionEvent event) {
-                    switch( event.getAction() ) {
-                        case MotionEvent.ACTION_MOVE:
-                            points.add(new Point(event.getX(), event.getY(), true));
-                            invalidate();
-                            break;
-                        case MotionEvent.ACTION_UP:
-                        case MotionEvent.ACTION_DOWN:
-                            points.add(new Point(event.getX(), event.getY(), false));
-                    }
-                    return true;
-                }
-            });
-        }
-        @Override
-        protected void onDraw(Canvas canvas) {
-            super.onDraw(canvas);
-            Paint p = new Paint();
-            p.setColor(Color.MAGENTA);
-            p.setStrokeWidth(3);
-            for(int i=1; i<points.size(); i++) {
-                if(!points.get(i).isDraw) continue;
-                canvas.drawLine(points.get(i-1).x, points.get(i-1).y, points.get(i).x, points.get(i).y, p);
-            }
-        }
-    }
-    ArrayList<Point> points = new ArrayList<Point>();
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        mp = new MyPaint(this);
+        custompv = new Custompaintview(this);
         //setContentView(mp);
         setContentView(R.layout.activity_main);
 
-        linearLayout = (LinearLayout)findViewById(R.id.linearLayout);
-        linearLayout.addView(mp);
+        custompv.setPaintInfo(currentDrawlineColor,currentDrawlineThick);
+
+        init();
     }
+    private void init(){
+        linearLayout = (LinearLayout)findViewById(R.id.linearLayout);
+        linearLayout.addView(custompv);
+
+        color_btn = (Button)findViewById(R.id.color_btn);
+        color_btn.setOnClickListener(this);
+    }
+    @Override
+    public void onClick(View v) {
+
+        switch(v.getId()){
+
+            case R.id.color_btn: /** Draw line color change button */
+                Toast.makeText(this, "color change", Toast.LENGTH_SHORT).show();
+                ColorPickerDialogBuilder
+                        .with(this)
+                        .setTitle(R.string.color_dialog_title)
+                        .initialColor(currentDrawlineColor)
+                        .wheelType(ColorPickerView.WHEEL_TYPE.FLOWER)
+                        .density(12)
+                        .setOnColorChangedListener(new OnColorChangedListener() {
+                            @Override
+                            public void onColorChanged(int selectedColor) {
+                                // Handle on color change
+                                Log.d("ColorPicker", "onColorChanged: 0x" + Integer.toHexString(selectedColor));
+                            }
+                        })
+                        .setOnColorSelectedListener(new OnColorSelectedListener() {
+                            @Override
+                            public void onColorSelected(int selectedColor) {
+                                Toast.makeText(MainActivity.this, "onColorSelected: 0x" + Integer.toHexString(selectedColor), Toast.LENGTH_SHORT).show();
+                            }
+                        })
+                        .setPositiveButton("ok", new ColorPickerClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int selectedColor, Integer[] allColors) {
+                                changeDrawlineColor(selectedColor);
+                                if (allColors != null) {
+                                    StringBuilder sb = null;
+
+                                    for (Integer color : allColors) {
+                                        if (color == null)
+                                            continue;
+                                        if (sb == null)
+                                            sb = new StringBuilder("Color List:");
+                                        sb.append("\r\n#" + Integer.toHexString(color).toUpperCase());
+                                    }
+
+                                    if (sb != null)
+                                        Toast.makeText(getApplicationContext(), sb.toString(), Toast.LENGTH_SHORT).show();
+                                }
+                            }
+                        })
+                        .setNegativeButton("cancel", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                            }
+                        })
+                        .showColorEdit(true)
+                        .setColorEditTextColor(ContextCompat.getColor(MainActivity.this, android.R.color.holo_blue_bright))
+                        .build()
+                        .show();
+                break;
+
+        }
+    }
+
+    private void changeDrawlineColor(int selectedColor) {
+        //currentDrawlineColor = selectedColor;
+        custompv.setPaintInfo(selectedColor,currentDrawlineThick);
+    }
+
 
     //액션버튼 메뉴 액션바에 집어 넣기
     @Override
@@ -168,7 +213,7 @@ public class MainActivity extends AppCompatActivity {
         //ivImage.setImageBitmap(rotate(bitmap, exifDegree));//이미지 뷰에 비트맵 넣기
 
         Drawable drawble = new BitmapDrawable(rotate(bitmap, exifDegree));    // 백그라운드로 전체 화면 뿌리기 위해 Bitmap을 drable 로 변환
-        mp.setBackground(drawble);
+        custompv.setBackground(drawble);
 
 
 
